@@ -1,3 +1,28 @@
 <resources>
     <string name="app_name">Tada App</string>
+    <string name="aqi">aqi</string>
+    <string name="nickname">nickname</string>
+    <string name="price">price</string>
+    <string name="side_a">A</string>
+    <string name="side_b">B</string>
+    <string name="action_set_a">Set A</string>
+    <string name="action_set_b">Set B</string>
+    <string name="action_book">Book</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_confirm">V</string>
+    <string name="action_try_again">Try again</string>
+    <string name="total_count">Total Count</string>
+    <string name="total_price">Total Price</string>
+    <string name="history_side_line">%1$s  %2$s</string>
+    <string name="cd_center_marker">Map center</string>
+    <string name="cd_loading">Loading</string>
+    <string name="error_geocode">Could not find an address for this point.</string>
+    <string name="error_air_quality">Could not load air quality.</string>
+    <string name="error_network">Something went wrong. Try again.</string>
+    <string name="error_location">Could not find the current location.</string>
+    <string name="error_permission">Location permission is required.</string>
+    <string name="error_nickname">Nickname must be 20 characters or fewer.</string>
+    <string name="error_not_ready">That step is not available yet.</string>
+    <string name="error_booking">Could not book this trip.</string>
+    <string name="error_history">Could not load bookings.</string>
 </resources>
