@@ -64,13 +64,13 @@ Launch starts empty on Set A. Saved points and saved places are not restored ont
 
 **Screen 3.** Book sends `POST /books` with `latitude`, `longitude`, `aqi`, and `name` for A and for B. `name` is the reverse-geocode address. For each side, the letter is top-aligned with the address and uses the same text size. It is not vertically centered across the `aqi` or nickname rows. Those rows start at the name’s left edge. `aqi` and its value, and `nickname` and its value, are equal-width left-aligned columns. The nickname line stays when the nickname is blank. Then `price`. The mock price is a new integer from 1000 through 10000. The response, plus an id and a timestamp, is appended to the bookings file. **V** opens history. System back clears the on-screen labels and returns the button to Set A. It does not delete points-file records and does not recenter.
 
-**Screen 4.** `GET /books` is called with `year` and `month`. Those parameters do not filter the list. The screen reads the bookings file, newest timestamp first. Total Count and Total Price sit above a clearly visible divider, then a vertical list of each booking’s A and B names. System back returns to Screen 3.
+**Screen 4.** `GET /books` is called with `year` and `month`. Those parameters do not filter the list. The screen reads the bookings file, newest timestamp first. Total Count and Total Price sit above a clearly visible divider, then a vertical list of each booking’s A and B names. Tapping a row returns to Screen 1 and drops Screen 3 and Screen 4. A and B are set from that booking’s coordinates and name. A saved place that matches through the third decimal keeps its nickname. The button reads Book. A new air-quality value is fetched for each side, and the AQI stored on the booking is not copied. The names show before that fetch finishes. The map centers on A. The top air-quality panel still follows the map center after the 500ms wait. Dragging does not change A or B. System back, without tapping a row, returns to Screen 3.
 
 ## Architecture
 
 ```
 Compose screens  ->  one ViewModel per screen
-                 ->  use cases (address, place match, Set A / Set B, nickname, back, book, history, camera target, center air quality)
+                 ->  use cases (address, place match, Set A / Set B, nickname, back, book, history, restore a booking, camera target, center air quality)
                  ->  repositories
                  ->  Retrofit (AQICN, BigDataCloud, books), the points and places JSON files, fused location, Google Maps
 ```

@@ -7,10 +7,13 @@ import com.example.tada.domain.model.DomainResult
 import com.example.tada.domain.model.FailureReason
 import com.example.tada.domain.model.GeoCoordinate
 import com.example.tada.domain.model.Side
+import com.example.tada.domain.repository.MapCenterRequest
+import com.example.tada.domain.repository.RestoreBookingQueue
 import com.example.tada.domain.repository.SelectionRepository
 import com.example.tada.domain.usecase.LoadCameraTargetUseCase
 import com.example.tada.domain.usecase.PointRowLabel
 import com.example.tada.domain.usecase.RefreshCenterAirQualityUseCase
+import com.example.tada.domain.usecase.RestoreBookingUseCase
 import com.example.tada.domain.usecase.SetPointUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -59,6 +62,9 @@ class MapViewModel @Inject constructor(
     private val refreshCenterAirQuality: RefreshCenterAirQualityUseCase,
     private val loadCameraTarget: LoadCameraTargetUseCase,
     private val pointRowLabel: PointRowLabel,
+    private val restoreBooking: RestoreBookingUseCase,
+    private val restoreQueue: RestoreBookingQueue,
+    private val mapCenter: MapCenterRequest,
 ) : ViewModel() {
     private val _ui = MutableStateFlow(MapUiState())
     val ui: StateFlow<MapUiState> = _ui.asStateFlow()
@@ -84,6 +90,25 @@ class MapViewModel @Inject constructor(
                         aSet = selection.a != null,
                         bSet = selection.b != null,
                     )
+                }
+            }
+        }
+        viewModelScope.launch {
+            mapCenter.observe().collect { target ->
+                _ui.update {
+                    it.copy(
+                        cameraTarget = target,
+                        recenterToken = it.recenterToken + 1,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            restoreQueue.observe().collect { booking ->
+                bookingOpened = false
+                when (val result = restoreBooking(booking)) {
+                    is DomainResult.Ok -> _ui.update { it.copy(bannerError = null) }
+                    is DomainResult.Err -> _ui.update { it.copy(bannerError = result.reason) }
                 }
             }
         }

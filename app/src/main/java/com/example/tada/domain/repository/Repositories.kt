@@ -51,6 +51,18 @@ interface SelectionRepository {
     fun update(selection: Selection)
 }
 
+interface RestoreBookingQueue {
+    fun submit(booking: Booking)
+
+    fun observe(): Flow<Booking>
+}
+
+interface MapCenterRequest {
+    fun centerOn(latitude: Double, longitude: Double)
+
+    fun observe(): Flow<GeoCoordinate>
+}
+
 fun interface YearMonthSource {
     fun current(): YearMonthQuery
 }

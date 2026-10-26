@@ -1,6 +1,7 @@
 package com.example.tada.domain.usecase
 
 import com.example.tada.domain.model.ActionStep
+import com.example.tada.domain.model.AirQualityFailedException
 import com.example.tada.domain.model.BookRequest
 import com.example.tada.domain.model.BookedSide
 import com.example.tada.domain.model.Booking
@@ -11,16 +12,21 @@ import com.example.tada.domain.model.HistorySummary
 import com.example.tada.domain.model.HistoryRow
 import com.example.tada.domain.model.MapPoint
 import com.example.tada.domain.model.NicknameRules
+import com.example.tada.domain.model.SavedPlace
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
 import com.example.tada.domain.model.SidePresentation
+import com.example.tada.domain.repository.AqiRepository
 import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.BookingsRepository
+import com.example.tada.domain.repository.MapCenterRequest
 import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
 import com.example.tada.domain.repository.SelectionRepository
 import com.example.tada.domain.repository.YearMonthSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 class SaveNicknameUseCase @Inject constructor(
@@ -112,7 +118,13 @@ class LoadHistoryUseCase @Inject constructor(
                 totalCount = bookings.size,
                 totalPrice = bookings.sumOf { it.price },
                 rows = bookings.map { booking ->
-                    HistoryRow(aName = booking.a.name, bName = booking.b.name)
+                    HistoryRow(
+                        id = booking.id,
+                        aName = booking.a.name,
+                        bName = booking.b.name,
+                        a = booking.a,
+                        b = booking.b,
+                    )
                 },
             ),
         )
@@ -120,6 +132,82 @@ class LoadHistoryUseCase @Inject constructor(
         throw cancelled
     } catch (_: Exception) {
         DomainResult.Err(FailureReason.History)
+    }
+}
+
+class RestoreBookingUseCase @Inject constructor(
+    private val aqiRepository: AqiRepository,
+    private val placesRepository: PlacesRepository,
+    private val pointsRepository: PointsRepository,
+    private val selectionRepository: SelectionRepository,
+    private val matchSavedPlace: MatchSavedPlace,
+    private val mapCenter: MapCenterRequest,
+) {
+    suspend operator fun invoke(booking: Booking): DomainResult<Selection> {
+        val places = try {
+            placesRepository.read()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val shown = Selection(
+            step = ActionStep.Book,
+            a = pointFrom(booking.a, places),
+            b = pointFrom(booking.b, places),
+        )
+        selectionRepository.update(shown)
+        mapCenter.centerOn(booking.a.latitude, booking.a.longitude)
+
+        val freshA: Int
+        val freshB: Int
+        try {
+            coroutineScope {
+                val aDeferred = async { aqiRepository.fetch(booking.a.latitude, booking.a.longitude) }
+                val bDeferred = async { aqiRepository.fetch(booking.b.latitude, booking.b.longitude) }
+                freshA = aDeferred.await()
+                freshB = bDeferred.await()
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: AirQualityFailedException) {
+            return DomainResult.Err(FailureReason.AirQuality)
+        } catch (_: Exception) {
+            return DomainResult.Err(FailureReason.Network)
+        }
+
+        val restored = shown.copy(
+            a = shown.a?.copy(aqi = freshA),
+            b = shown.b?.copy(aqi = freshB),
+        )
+        return try {
+            val a = restored.a ?: return DomainResult.Err(FailureReason.NotReady)
+            val b = restored.b ?: return DomainResult.Err(FailureReason.NotReady)
+            pointsRepository.upsert(Side.A, a)
+            pointsRepository.upsert(Side.B, b)
+            selectionRepository.update(restored)
+            DomainResult.Ok(restored)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            selectionRepository.update(restored)
+            DomainResult.Err(FailureReason.Network)
+        }
+    }
+
+    private fun pointFrom(side: BookedSide, places: List<SavedPlace>): MapPoint {
+        val nickname = matchSavedPlace.newest(places, side.latitude, side.longitude)?.nickname.orEmpty()
+        return MapPoint(
+            latitude = side.latitude,
+            longitude = side.longitude,
+            address = side.name,
+            aqi = PENDING_AQI,
+            nickname = nickname,
+        )
+    }
+
+    private companion object {
+        const val PENDING_AQI = 0
     }
 }
 

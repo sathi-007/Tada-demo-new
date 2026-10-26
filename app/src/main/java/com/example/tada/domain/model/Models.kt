@@ -82,8 +82,11 @@ data class BookingPresentation(
 )
 
 data class HistoryRow(
+    val id: String,
     val aName: String,
     val bName: String,
+    val a: BookedSide,
+    val b: BookedSide,
 )
 
 data class HistorySummary(
