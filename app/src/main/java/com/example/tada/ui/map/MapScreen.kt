@@ -18,16 +18,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.Image
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -176,7 +176,7 @@ fun MapScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (keyStatus) {
                     MapsApiKeyStatus.Missing -> MapsSetupMessage(
@@ -199,14 +199,13 @@ fun MapScreen(
                                 compassEnabled = false,
                             ),
                         )
-                        Icon(
-                            painter = painterResource(R.drawable.ic_center_pin),
+                        Image(
+                            painter = painterResource(R.drawable.map_pin),
                             contentDescription = stringResource(R.string.cd_center_marker),
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .size(40.dp)
-                                .offset(y = (-20).dp),
-                            tint = Color.Black,
+                                .size(CENTER_PIN_WIDTH, CENTER_PIN_HEIGHT)
+                                .offset(y = -CENTER_PIN_HEIGHT / 2),
                         )
                         AirQualityChip(
                             aqi = state.cornerAqi,
@@ -225,7 +224,6 @@ fun MapScreen(
             MapCard(
                 state = state,
                 onAction = viewModel::onAction,
-                onClear = viewModel::onClear,
                 onOpenNickname = onOpenNickname,
                 onRetryPermission = { permissionLauncher.launch(locationPermissions()) },
                 onRetryLocation = viewModel::retryLocation,
@@ -238,6 +236,8 @@ fun MapScreen(
 }
 
 private const val MAPS_LOG_TAG = "TadaMaps"
+private val CENTER_PIN_WIDTH = 28.dp
+private val CENTER_PIN_HEIGHT = 47.dp
 
 @Composable
 private fun MapsSetupMessage(text: String) {
@@ -305,17 +305,15 @@ private fun AirQualityChip(
 private fun MapCard(
     state: MapUiState,
     onAction: () -> Unit,
-    onClear: () -> Unit,
     onOpenNickname: (Side) -> Unit,
     onRetryPermission: () -> Unit,
     onRetryLocation: () -> Unit,
 ) {
-    Surface(color = Color.White, shadowElevation = 8.dp) {
+    Surface(color = Color.White) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(16.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
         ) {
             state.bannerError?.let { reason ->
                 Text(text = failureMessage(reason), color = Color(0xFFB3261E))
@@ -330,7 +328,10 @@ private fun MapCard(
                 }
                 Spacer(modifier = Modifier.size(8.dp))
             }
-            Row(verticalAlignment = Alignment.Top) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -348,22 +349,14 @@ private fun MapCard(
                         onClick = { onOpenNickname(Side.B) },
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    YellowButton(
-                        text = actionLabel(state.step),
-                        onClick = onAction,
-                        enabled = state.canAct,
-                        modifier = Modifier.width(104.dp).heightIn(min = 84.dp),
-                    )
-                    OutlinedButton(
-                        onClick = onClear,
-                        enabled = state.clearEnabled && !state.blocking,
-                        modifier = Modifier.width(104.dp),
-                    ) {
-                        Text(stringResource(R.string.action_clear))
-                    }
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                YellowButton(
+                    text = actionLabel(state.step),
+                    onClick = onAction,
+                    enabled = state.canAct,
+                    fontSize = 16.sp,
+                    modifier = Modifier.width(96.dp).fillMaxHeight(),
+                )
             }
         }
     }
@@ -379,8 +372,8 @@ private fun PointRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 52.dp)
-            .background(TadaRow, RoundedCornerShape(8.dp))
+            .heightIn(min = 48.dp)
+            .background(TadaRow, RoundedCornerShape(4.dp))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

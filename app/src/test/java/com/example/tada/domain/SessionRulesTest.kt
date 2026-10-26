@@ -13,11 +13,14 @@ import com.example.tada.domain.model.GeocodeFailedException
 import com.example.tada.domain.model.MapPoint
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
+import com.example.tada.domain.model.SavedPlace
 import com.example.tada.domain.repository.AqiRepository
+import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.GeocodeRepository
+import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
-import com.example.tada.domain.usecase.ClearPointsUseCase
 import com.example.tada.domain.usecase.FormatAdministrativeAddress
+import com.example.tada.domain.usecase.MatchSavedPlace
 import com.example.tada.domain.usecase.ResetSelectionUseCase
 import com.example.tada.domain.usecase.SaveNicknameUseCase
 import com.example.tada.domain.usecase.SetPointUseCase
@@ -80,16 +83,21 @@ class SessionRulesTest {
     }
 
     @Test
-    fun pointsFileWritesOnlyOnSetASetBAndNickname_clearDeletes_backDoesNot() = runTest {
+    fun pointsFileWritesOnlyOnSetASetBAndNickname_backDoesNotDelete() = runTest {
         val file = tempFile("points.json")
         val store = PointsFileStore(file, json)
         store.upsert(Side.B, PointDto(9.0, 8.0, "kept address", 3, "office"))
         val points = PointsRepositoryImpl(store, Dispatchers.Unconfined)
         val selection = SelectionRepositoryImpl()
         val setPoint = setPointUseCase(FakeGeocode(), FakeAqi().apply { fail = false }, points, selection)
-        val saveNickname = SaveNicknameUseCase(points, selection)
+        val saveNickname = SaveNicknameUseCase(
+            pointsRepository = points,
+            placesRepository = MemoryPlaces(),
+            selectionRepository = selection,
+            matchSavedPlace = MatchSavedPlace(),
+            clock = AppClock { 0L },
+        )
         val reset = ResetSelectionUseCase(selection)
-        val clear = ClearPointsUseCase(points, selection)
 
         setPoint(Side.A, 37.1, 127.1)
         val afterSetA = store.read()
@@ -113,26 +121,22 @@ class SessionRulesTest {
         assertEquals(Selection.Empty, selection.current())
         assertEquals(bookedElsewhere, file.readText())
         assertTrue(file.exists())
-
-        selection.update(
-            Selection(
-                step = ActionStep.Book,
-                a = saved.value.a,
-                b = saved.value.b,
-            ),
-        )
-        clear()
-        assertEquals(Selection.Empty, selection.current())
-        assertFalse(file.exists())
-        assertNull(store.read().a)
-        assertNull(store.read().b)
+        assertEquals("home", store.read().a?.nickname)
+        assertEquals(37.2, store.read().b?.latitude ?: 0.0, 0.001)
+        assertEquals("", store.read().b?.nickname)
     }
 
     @Test
     fun nicknameLengthAndBlankLine() = runTest {
         val points = RecordingPoints()
         val selection = SelectionRepositoryImpl()
-        val save = SaveNicknameUseCase(points, selection)
+        val save = SaveNicknameUseCase(
+            pointsRepository = points,
+            placesRepository = MemoryPlaces(),
+            selectionRepository = selection,
+            matchSavedPlace = MatchSavedPlace(),
+            clock = AppClock { 0L },
+        )
         val point = MapPoint(1.0, 2.0, "Seocho District, Yangjae 2(i)-dong", 4, "seed")
         selection.update(Selection(ActionStep.SetB, point, null))
 
@@ -156,12 +160,16 @@ class SessionRulesTest {
         aqi: AqiRepository,
         points: PointsRepository,
         selection: SelectionRepositoryImpl,
+        places: PlacesRepository = MemoryPlaces(),
     ) = SetPointUseCase(
         geocodeRepository = geocode,
         aqiRepository = aqi,
         pointsRepository = points,
+        placesRepository = places,
         selectionRepository = selection,
         formatAddress = FormatAdministrativeAddress(),
+        matchSavedPlace = MatchSavedPlace(),
+        clock = AppClock { 1_000L },
     )
 }
 
@@ -190,6 +198,21 @@ class FakeAqi : AqiRepository {
         calls += 1
         if (fail) throw AirQualityFailedException()
         return value
+    }
+}
+
+class MemoryPlaces : PlacesRepository {
+    val places = mutableListOf<SavedPlace>()
+
+    override suspend fun read(): List<SavedPlace> = places.toList()
+
+    override suspend fun append(place: SavedPlace) {
+        places += place
+    }
+
+    override suspend fun write(places: List<SavedPlace>) {
+        this.places.clear()
+        this.places += places
     }
 }
 

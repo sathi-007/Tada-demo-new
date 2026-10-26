@@ -3,6 +3,7 @@ package com.example.tada.di
 import android.content.Context
 import com.example.tada.BuildConfig
 import com.example.tada.data.local.BookingsFileStore
+import com.example.tada.data.local.PlacesFileStore
 import com.example.tada.data.local.PointsFileStore
 import com.example.tada.data.mock.MockBooksApi
 import com.example.tada.data.price.RandomPriceGenerator
@@ -14,6 +15,7 @@ import com.example.tada.data.repository.AqiRepositoryImpl
 import com.example.tada.data.repository.BookingsRepositoryImpl
 import com.example.tada.data.repository.FusedDeviceLocationRepository
 import com.example.tada.data.repository.GeocodeRepositoryImpl
+import com.example.tada.data.repository.PlacesRepositoryImpl
 import com.example.tada.data.repository.PointsRepositoryImpl
 import com.example.tada.data.repository.SelectionRepositoryImpl
 import com.example.tada.data.repository.SystemAppClock
@@ -25,6 +27,7 @@ import com.example.tada.domain.repository.BookingsRepository
 import com.example.tada.domain.repository.DeviceLocationRepository
 import com.example.tada.domain.repository.GeocodeRepository
 import com.example.tada.domain.repository.IdFactory
+import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
 import com.example.tada.domain.repository.PriceGenerator
 import com.example.tada.domain.repository.SelectionRepository
@@ -164,6 +167,13 @@ object LocalStoreModule {
 
     @Provides
     @Singleton
+    fun placesFile(
+        @ApplicationContext context: Context,
+        json: Json,
+    ): PlacesFileStore = PlacesFileStore(File(context.filesDir, "places.json"), json)
+
+    @Provides
+    @Singleton
     fun bookingsFile(
         @ApplicationContext context: Context,
         json: Json,
@@ -184,6 +194,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun points(impl: PointsRepositoryImpl): PointsRepository
+
+    @Binds
+    @Singleton
+    abstract fun places(impl: PlacesRepositoryImpl): PlacesRepository
 
     @Binds
     @Singleton

@@ -14,7 +14,9 @@ import com.example.tada.domain.model.NicknameRules
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
 import com.example.tada.domain.model.SidePresentation
+import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.BookingsRepository
+import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
 import com.example.tada.domain.repository.SelectionRepository
 import com.example.tada.domain.repository.YearMonthSource
@@ -23,7 +25,10 @@ import javax.inject.Inject
 
 class SaveNicknameUseCase @Inject constructor(
     private val pointsRepository: PointsRepository,
+    private val placesRepository: PlacesRepository,
     private val selectionRepository: SelectionRepository,
+    private val matchSavedPlace: MatchSavedPlace,
+    private val clock: AppClock,
 ) {
     suspend operator fun invoke(side: Side, nickname: String): DomainResult<Selection> {
         if (!NicknameRules.accept(nickname)) {
@@ -34,6 +39,15 @@ class SaveNicknameUseCase @Inject constructor(
         val updatedPoint = existing.copy(nickname = nickname)
         val updated = current.withPoint(side, updatedPoint)
         return try {
+            val places = matchSavedPlace.withNickname(
+                places = placesRepository.read(),
+                latitude = existing.latitude,
+                longitude = existing.longitude,
+                address = existing.address,
+                nickname = nickname,
+                savedAtMillis = clock.nowMillis(),
+            )
+            placesRepository.write(places)
             pointsRepository.upsert(side, updatedPoint)
             selectionRepository.update(updated)
             DomainResult.Ok(updated)

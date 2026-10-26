@@ -8,7 +8,6 @@
     <string name="action_set_a">Set A</string>
     <string name="action_set_b">Set B</string>
     <string name="action_book">Book</string>
-    <string name="action_clear">Clear</string>
     <string name="action_confirm">V</string>
     <string name="action_try_again">Try again</string>
     <string name="total_count">Total Count</string>

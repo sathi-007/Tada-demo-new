@@ -2,6 +2,7 @@ package com.example.tada.data.local
 
 import com.example.tada.data.remote.PointDto
 import com.example.tada.data.remote.PointsFileDto
+import com.example.tada.data.remote.SavedPlaceDto
 import com.example.tada.data.remote.StoredBookingDto
 import com.example.tada.domain.model.Side
 import kotlinx.serialization.json.Json
@@ -41,6 +42,36 @@ class PointsFileStore(
 
     private fun writeUnlocked(value: PointsFileDto) {
         writeAtomically(file, json.encodeToString(PointsFileDto.serializer(), value))
+    }
+}
+
+class PlacesFileStore(
+    private val file: File,
+    private val json: Json,
+) {
+    private val lock = Any()
+
+    fun read(): List<SavedPlaceDto> = synchronized(lock) { readUnlocked() }
+
+    fun append(place: SavedPlaceDto) {
+        synchronized(lock) {
+            writeUnlocked(readUnlocked() + place)
+        }
+    }
+
+    fun write(places: List<SavedPlaceDto>) {
+        synchronized(lock) {
+            writeUnlocked(places)
+        }
+    }
+
+    private fun readUnlocked(): List<SavedPlaceDto> {
+        if (!file.exists() || file.length() == 0L) return emptyList()
+        return json.decodeFromString(file.readText())
+    }
+
+    private fun writeUnlocked(places: List<SavedPlaceDto>) {
+        writeAtomically(file, json.encodeToString(places))
     }
 }
 

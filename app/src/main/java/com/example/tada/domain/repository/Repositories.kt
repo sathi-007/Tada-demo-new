@@ -5,6 +5,7 @@ import com.example.tada.domain.model.BookRequest
 import com.example.tada.domain.model.Booking
 import com.example.tada.domain.model.GeoCoordinate
 import com.example.tada.domain.model.MapPoint
+import com.example.tada.domain.model.SavedPlace
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
 import com.example.tada.domain.model.YearMonthQuery
@@ -22,6 +23,14 @@ interface PointsRepository {
     suspend fun upsert(side: Side, point: MapPoint)
 
     suspend fun clear()
+}
+
+interface PlacesRepository {
+    suspend fun read(): List<SavedPlace>
+
+    suspend fun append(place: SavedPlace)
+
+    suspend fun write(places: List<SavedPlace>)
 }
 
 interface BookingsRepository {

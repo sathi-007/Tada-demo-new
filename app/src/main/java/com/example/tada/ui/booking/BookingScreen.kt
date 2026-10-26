@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -45,8 +44,7 @@ fun BookingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
     ) {
         when {
             state.loading -> {
@@ -71,7 +69,7 @@ fun BookingScreen(
                 YellowButton(
                     text = stringResource(R.string.action_confirm),
                     onClick = onOpenHistory,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
                 )
             }
             else -> {
@@ -96,9 +94,9 @@ fun BookingScreen(
 @Composable
 private fun SideBlock(letter: String, side: SidePresentation) {
     Row(verticalAlignment = Alignment.Bottom) {
-        Text(text = letter, fontWeight = FontWeight.Bold, fontSize = 28.sp)
+        Text(text = letter, fontWeight = FontWeight.Bold, fontSize = 22.sp)
         Spacer(modifier = Modifier.width(12.dp))
-        Text(text = side.locationName, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        Text(text = side.locationName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
     }
     Spacer(modifier = Modifier.height(12.dp))
     LabelValue(label = stringResource(R.string.aqi), value = side.aqi.toString())

@@ -9,8 +9,10 @@ import com.example.tada.data.remote.BookRequestDto
 import com.example.tada.data.remote.BooksApi
 import com.example.tada.data.remote.GeocodeApi
 import com.example.tada.data.remote.PointDto
+import com.example.tada.data.remote.SavedPlaceDto
 import com.example.tada.data.remote.StoredBookingDto
 import com.example.tada.data.remote.toAdminAreas
+import com.example.tada.data.local.PlacesFileStore
 import com.example.tada.data.local.PointsFileStore
 import com.example.tada.di.IoDispatcher
 import com.example.tada.domain.model.AdminArea
@@ -21,6 +23,7 @@ import com.example.tada.domain.model.Booking
 import com.example.tada.domain.model.GeoCoordinate
 import com.example.tada.domain.model.GeocodeFailedException
 import com.example.tada.domain.model.MapPoint
+import com.example.tada.domain.model.SavedPlace
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
 import com.example.tada.domain.model.YearMonthQuery
@@ -30,6 +33,7 @@ import com.example.tada.domain.repository.BookingsRepository
 import com.example.tada.domain.repository.DeviceLocationRepository
 import com.example.tada.domain.repository.GeocodeRepository
 import com.example.tada.domain.repository.IdFactory
+import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
 import com.example.tada.domain.repository.SelectionRepository
 import com.example.tada.domain.repository.YearMonthSource
@@ -122,6 +126,23 @@ class PointsRepositoryImpl @Inject constructor(
     }
 }
 
+class PlacesRepositoryImpl @Inject constructor(
+    private val store: PlacesFileStore,
+    @param:IoDispatcher private val io: CoroutineDispatcher,
+) : PlacesRepository {
+    override suspend fun read(): List<SavedPlace> = withContext(io) {
+        store.read().map { it.toDomain() }
+    }
+
+    override suspend fun append(place: SavedPlace) = withContext(io) {
+        store.append(place.toDto())
+    }
+
+    override suspend fun write(places: List<SavedPlace>) = withContext(io) {
+        store.write(places.map { it.toDto() })
+    }
+}
+
 class BookingsRepositoryImpl @Inject constructor(
     private val api: BooksApi,
     @param:IoDispatcher private val io: CoroutineDispatcher,
@@ -185,6 +206,22 @@ class SystemYearMonthSource @Inject constructor(
         )
     }
 }
+
+private fun SavedPlace.toDto(): SavedPlaceDto = SavedPlaceDto(
+    latitude = latitude,
+    longitude = longitude,
+    address = address,
+    nickname = nickname,
+    savedAtMillis = savedAtMillis,
+)
+
+private fun SavedPlaceDto.toDomain(): SavedPlace = SavedPlace(
+    latitude = latitude,
+    longitude = longitude,
+    address = address,
+    nickname = nickname,
+    savedAtMillis = savedAtMillis,
+)
 
 private fun BookedSide.toDto(): BookEndpointDto = BookEndpointDto(
     latitude = latitude,

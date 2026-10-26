@@ -29,6 +29,14 @@ data class MapPoint(
     val nickname: String,
 )
 
+data class SavedPlace(
+    val latitude: Double,
+    val longitude: Double,
+    val address: String,
+    val nickname: String,
+    val savedAtMillis: Long,
+)
+
 data class Selection(
     val step: ActionStep,
     val a: MapPoint?,

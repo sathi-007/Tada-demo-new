@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -44,18 +43,17 @@ fun NicknameScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding()
             .imePadding()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = if (state.side == Side.A) stringResource(R.string.side_a) else stringResource(R.string.side_b),
                 fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
+                fontSize = 22.sp,
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text(text = state.address, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(text = state.address, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -80,7 +78,7 @@ fun NicknameScreen(
             text = stringResource(R.string.action_confirm),
             onClick = viewModel::save,
             enabled = !state.saving && !state.missing,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
+            modifier = Modifier.fillMaxWidth().height(52.dp),
         )
     }
 }
