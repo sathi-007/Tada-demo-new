@@ -46,11 +46,11 @@ fun NicknameScreen(
             .imePadding()
             .padding(horizontal = 16.dp, vertical = 20.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.Top) {
             Text(
                 text = if (state.side == Side.A) stringResource(R.string.side_a) else stringResource(R.string.side_b),
                 fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
+                fontSize = 18.sp,
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
