@@ -40,11 +40,16 @@ import com.example.tada.domain.repository.YearMonthSource
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.example.tada.domain.repository.MapCenterRequest
+import com.example.tada.domain.repository.RestoreBookingQueue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
@@ -196,6 +201,28 @@ class SystemAppClock @Inject constructor() : AppClock {
 
 class UuidIdFactory @Inject constructor() : IdFactory {
     override fun newId(): String = UUID.randomUUID().toString()
+}
+
+@Singleton
+class RestoreBookingQueueImpl @Inject constructor() : RestoreBookingQueue {
+    private val requests = Channel<Booking>(capacity = Channel.BUFFERED)
+
+    override fun submit(booking: Booking) {
+        requests.trySend(booking)
+    }
+
+    override fun observe(): Flow<Booking> = requests.receiveAsFlow()
+}
+
+@Singleton
+class MapCenterRequestImpl @Inject constructor() : MapCenterRequest {
+    private val requests = MutableSharedFlow<GeoCoordinate>(extraBufferCapacity = 1)
+
+    override fun centerOn(latitude: Double, longitude: Double) {
+        requests.tryEmit(GeoCoordinate(latitude, longitude))
+    }
+
+    override fun observe(): Flow<GeoCoordinate> = requests
 }
 
 class SystemYearMonthSource @Inject constructor(

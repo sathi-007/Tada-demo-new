@@ -17,12 +17,15 @@ import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.DeviceLocationRepository
 import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
+import com.example.tada.data.repository.MapCenterRequestImpl
+import com.example.tada.data.repository.RestoreBookingQueueImpl
 import com.example.tada.domain.usecase.FormatAdministrativeAddress
 import com.example.tada.domain.usecase.LoadCameraTargetUseCase
 import com.example.tada.domain.usecase.MatchSavedPlace
 import com.example.tada.domain.usecase.PointRowLabel
 import com.example.tada.domain.usecase.RefreshCenterAirQualityUseCase
 import com.example.tada.domain.usecase.ResetSelectionUseCase
+import com.example.tada.domain.usecase.RestoreBookingUseCase
 import com.example.tada.domain.usecase.SetPointUseCase
 import com.example.tada.domain.tempFile
 import kotlinx.coroutines.Dispatchers
@@ -236,4 +239,14 @@ private fun viewModel(
     refreshCenterAirQuality = RefreshCenterAirQualityUseCase(aqi),
     loadCameraTarget = LoadCameraTargetUseCase(FakeLocation()),
     pointRowLabel = PointRowLabel(),
+    restoreBooking = RestoreBookingUseCase(
+        aqiRepository = aqi,
+        placesRepository = places,
+        pointsRepository = points,
+        selectionRepository = selection,
+        matchSavedPlace = MatchSavedPlace(),
+        mapCenter = MapCenterRequestImpl(),
+    ),
+    restoreQueue = RestoreBookingQueueImpl(),
+    mapCenter = MapCenterRequestImpl(),
 )

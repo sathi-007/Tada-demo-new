@@ -1,5 +1,6 @@
 package com.example.tada.ui.history
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,8 +33,16 @@ import com.example.tada.ui.theme.TadaMuted
 import com.example.tada.ui.theme.TadaYellow
 
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
+fun HistoryScreen(
+    onRestored: () -> Unit,
+    viewModel: HistoryViewModel = hiltViewModel(),
+) {
     val state by viewModel.ui.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            if (event is HistoryEvent.ReturnToMap) onRestored()
+        }
+    }
     Column(
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -70,8 +80,8 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                 }
                 HorizontalDivider(thickness = 4.dp, color = Color(0xFF9E9E9E))
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(state.rows) { row ->
-                        HistoryItem(row)
+                    items(state.rows, key = { it.id }) { row ->
+                        HistoryItem(row, onClick = { viewModel.onRowSelected(row) })
                         HorizontalDivider()
                     }
                 }
@@ -90,8 +100,13 @@ private fun TotalColumn(label: String, value: String, modifier: Modifier = Modif
 }
 
 @Composable
-private fun HistoryItem(row: HistoryRow) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
+private fun HistoryItem(row: HistoryRow, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
         Text(
             text = stringResource(R.string.history_side_line, stringResource(R.string.side_a), row.aName),
             fontWeight = FontWeight.Bold,

@@ -28,7 +28,11 @@ import com.example.tada.domain.repository.DeviceLocationRepository
 import com.example.tada.domain.repository.GeocodeRepository
 import com.example.tada.domain.repository.IdFactory
 import com.example.tada.domain.repository.PlacesRepository
+import com.example.tada.data.repository.MapCenterRequestImpl
+import com.example.tada.data.repository.RestoreBookingQueueImpl
+import com.example.tada.domain.repository.MapCenterRequest
 import com.example.tada.domain.repository.PointsRepository
+import com.example.tada.domain.repository.RestoreBookingQueue
 import com.example.tada.domain.repository.PriceGenerator
 import com.example.tada.domain.repository.SelectionRepository
 import com.example.tada.domain.repository.YearMonthSource
@@ -210,6 +214,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun selection(impl: SelectionRepositoryImpl): SelectionRepository
+
+    @Binds
+    @Singleton
+    abstract fun restoreQueue(impl: RestoreBookingQueueImpl): RestoreBookingQueue
+
+    @Binds
+    @Singleton
+    abstract fun mapCenter(impl: MapCenterRequestImpl): MapCenterRequest
 
     @Binds
     @Singleton

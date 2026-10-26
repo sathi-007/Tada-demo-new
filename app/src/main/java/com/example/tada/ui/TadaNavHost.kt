@@ -53,7 +53,11 @@ fun TadaNavHost() {
             )
         }
         composable(Routes.HISTORY) {
-            HistoryScreen()
+            HistoryScreen(
+                onRestored = {
+                    navController.popBackStack(Routes.MAP, inclusive = false)
+                },
+            )
         }
     }
     }
