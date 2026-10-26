@@ -2,10 +2,13 @@ package com.example.tada.ui.map
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +54,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tada.R
 import com.example.tada.domain.model.ActionStep
+import com.example.tada.maps.MapsApiKeyStatus
+import com.example.tada.maps.mapsApiKeyStatus
+import com.example.tada.maps.readMergedMapsApiKey
 import com.example.tada.domain.model.FailureReason
 import com.example.tada.domain.model.Side
 import com.example.tada.ui.components.YellowButton
@@ -58,14 +64,18 @@ import com.example.tada.ui.failureMessage
 import com.example.tada.ui.theme.TadaMuted
 import com.example.tada.ui.theme.TadaRow
 import com.example.tada.ui.theme.TadaYellow
+import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 @Composable
 fun MapScreen(
@@ -99,11 +109,48 @@ fun MapScreen(
         }
     }
 
+    val keyStatus = remember(context.packageName) {
+        mapsApiKeyStatus(readMergedMapsApiKey(context))
+    }
+    var mapsReady by remember { mutableStateOf(false) }
+    var initFailed by remember { mutableStateOf(false) }
+    LaunchedEffect(keyStatus) {
+        if (keyStatus != MapsApiKeyStatus.Ready) {
+            mapsReady = false
+            initFailed = false
+            return@LaunchedEffect
+        }
+        val initialized = runCatching {
+            suspendCancellableCoroutine { continuation ->
+                val status = MapsInitializer.initialize(
+                    context.applicationContext,
+                    MapsInitializer.Renderer.LATEST,
+                ) {
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+                if (status != ConnectionResult.SUCCESS && continuation.isActive) {
+                    continuation.resumeWith(
+                        Result.failure(IllegalStateException("MapsInitializer status $status")),
+                    )
+                }
+            }
+        }
+        if (initialized.isSuccess) {
+            mapsReady = true
+            initFailed = false
+        } else {
+            mapsReady = false
+            initFailed = true
+            Log.w(MAPS_LOG_TAG, "MapsInitializer failed for ${context.packageName}", initialized.exceptionOrNull())
+        }
+    }
+
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 2f)
     }
     var gesturesArmed by remember { mutableStateOf(false) }
-    LaunchedEffect(state.recenterToken) {
+    LaunchedEffect(state.recenterToken, mapsReady) {
+        if (!mapsReady) return@LaunchedEffect
         val target = state.cameraTarget ?: return@LaunchedEffect
         if (state.recenterToken == 0) return@LaunchedEffect
         gesturesArmed = false
@@ -114,8 +161,8 @@ fun MapScreen(
         gesturesArmed = true
         viewModel.onCameraIdle(target.latitude, target.longitude)
     }
-    LaunchedEffect(gesturesArmed) {
-        if (!gesturesArmed) return@LaunchedEffect
+    LaunchedEffect(gesturesArmed, mapsReady) {
+        if (!mapsReady || !gesturesArmed) return@LaunchedEffect
         snapshotFlow { cameraPositionState.isMoving to cameraPositionState.position.target }
             .drop(1)
             .distinctUntilChanged()
@@ -131,30 +178,49 @@ fun MapScreen(
     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                GoogleMap(
-                    modifier = Modifier.fillMaxSize(),
-                    cameraPositionState = cameraPositionState,
-                    uiSettings = MapUiSettings(
-                        zoomControlsEnabled = false,
-                        myLocationButtonEnabled = false,
-                        compassEnabled = false,
-                    ),
-                )
-                Icon(
-                    painter = painterResource(R.drawable.ic_center_pin),
-                    contentDescription = stringResource(R.string.cd_center_marker),
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(40.dp)
-                        .offset(y = (-20).dp),
-                    tint = Color.Black,
-                )
-                AirQualityChip(
-                    aqi = state.cornerAqi,
-                    loading = state.cornerAqiLoading,
-                    error = state.cornerError,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                )
+                when (keyStatus) {
+                    MapsApiKeyStatus.Missing -> MapsSetupMessage(
+                        stringResource(R.string.maps_key_missing_body),
+                    )
+                    MapsApiKeyStatus.Unsubstituted -> MapsSetupMessage(
+                        stringResource(R.string.maps_key_unsubstituted_body),
+                    )
+                    MapsApiKeyStatus.Ready -> if (initFailed) {
+                        MapsSetupMessage(
+                            stringResource(R.string.maps_init_failed, context.packageName),
+                        )
+                    } else if (mapsReady) {
+                        GoogleMap(
+                            modifier = Modifier.fillMaxSize(),
+                            cameraPositionState = cameraPositionState,
+                            uiSettings = MapUiSettings(
+                                zoomControlsEnabled = false,
+                                myLocationButtonEnabled = false,
+                                compassEnabled = false,
+                            ),
+                        )
+                        Icon(
+                            painter = painterResource(R.drawable.ic_center_pin),
+                            contentDescription = stringResource(R.string.cd_center_marker),
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(40.dp)
+                                .offset(y = (-20).dp),
+                            tint = Color.Black,
+                        )
+                        AirQualityChip(
+                            aqi = state.cornerAqi,
+                            loading = state.cornerAqiLoading,
+                            error = state.cornerError,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                        )
+                    } else {
+                        CircularProgressIndicator(
+                            color = TadaYellow,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
+                }
             }
             MapCard(
                 state = state,
@@ -165,10 +231,25 @@ fun MapScreen(
                 onRetryLocation = viewModel::retryLocation,
             )
         }
-        if (state.blocking) {
+        if (state.blocking && keyStatus == MapsApiKeyStatus.Ready && !initFailed) {
             BlockingLoader()
         }
     }
+}
+
+private const val MAPS_LOG_TAG = "TadaMaps"
+
+@Composable
+private fun MapsSetupMessage(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        color = Color(0xFF1C1B1F),
+        fontSize = 16.sp,
+    )
 }
 
 private fun locationPermissions(): Array<String> = arrayOf(

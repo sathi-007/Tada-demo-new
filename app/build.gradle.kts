@@ -8,17 +8,20 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) {
-        file.inputStream().use(::load)
-    }
-}
+val localPropertiesText = providers
+    .fileContents(rootProject.layout.projectDirectory.file("local.properties"))
+    .asText
+    .orElse("")
 
-fun secret(name: String): String =
-    System.getenv(name)?.trim().orEmpty().ifEmpty {
-        localProperties.getProperty(name)?.trim().orEmpty()
-    }
+fun secret(name: String): String {
+    val fromEnv = providers.environmentVariable(name).orNull?.trim().orEmpty()
+    if (fromEnv.isNotEmpty()) return fromEnv
+    val text = localPropertiesText.orNull.orEmpty()
+    if (text.isEmpty()) return ""
+    val properties = Properties()
+    properties.load(text.reader())
+    return properties.getProperty(name)?.trim().orEmpty()
+}
 
 fun buildConfigString(value: String): String = buildString {
     append('"')
@@ -50,6 +53,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Values come from the environment or local.properties. Neither file is committed.
+        buildConfigField("String", "MAPS_API_KEY", buildConfigString(secret("MAPS_API_KEY")))
         buildConfigField("String", "AQICN_TOKEN", buildConfigString(secret("AQICN_TOKEN")))
         buildConfigField("String", "BIGDATACLOUD_API_KEY", buildConfigString(secret("BIGDATACLOUD_API_KEY")))
         buildConfigField("String", "BOOKS_BASE_URL", buildConfigString(secret("BOOKS_BASE_URL")))

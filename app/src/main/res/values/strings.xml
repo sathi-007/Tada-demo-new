@@ -25,4 +25,7 @@
     <string name="error_not_ready">That step is not available yet.</string>
     <string name="error_booking">Could not book this trip.</string>
     <string name="error_history">Could not load bookings.</string>
+    <string name="maps_key_missing_body">Maps API key missing.\n\nAdd this line to local.properties in the project root, then rebuild and reinstall:\n\nMAPS_API_KEY=your Google Maps SDK for Android key\n\nThat value is copied into the manifest as com.google.android.geo.API_KEY. An empty key makes Play services fail with a broker error instead of showing the map. Do not commit the key.</string>
+    <string name="maps_key_unsubstituted_body">The Maps key in the manifest was not replaced. Set MAPS_API_KEY in local.properties or the environment, then rebuild and reinstall.</string>
+    <string name="maps_init_failed">Google Maps could not start for %1$s. Confirm MAPS_API_KEY in local.properties is a Maps SDK for Android key for this package, then rebuild.</string>
 </resources>

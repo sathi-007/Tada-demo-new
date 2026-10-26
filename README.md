@@ -18,11 +18,17 @@ BIGDATACLOUD_API_KEY=your-bigdatacloud-key
 
 | Key | Used for | Where it is read |
 | --- | --- | --- |
-| `MAPS_API_KEY` | Google Maps SDK for Android | Manifest placeholder filled at build time |
+| `MAPS_API_KEY` | Google Maps SDK for Android | Copied into the merged manifest as `com.google.android.geo.API_KEY` at build time |
 | `AQICN_TOKEN` | [AQICN](https://aqicn.org/json-api/doc/) `feed/geo:{lat};{lng}/` | `BuildConfig.AQICN_TOKEN` |
 | `BIGDATACLOUD_API_KEY` | [BigDataCloud reverse geocode](https://www.bigdatacloud.com/docs/api/reverse-geocode-to-city) `data/reverse-geocode` | `BuildConfig.BIGDATACLOUD_API_KEY` |
 
-The project builds with those values empty. The map and the two live APIs need real keys to return data. Do not commit keys.
+The project builds with those values empty. Screen 1 reads `com.google.android.geo.API_KEY` from the merged manifest. An empty value or a leftover `${MAPS_API_KEY}` placeholder does not start Google Maps. The screen shows the line to add to `local.properties`:
+
+```properties
+MAPS_API_KEY=your-google-maps-sdk-key
+```
+
+Rebuild and reinstall after adding it. The environment variable of the same name overrides `local.properties`. An empty key used to load Maps anyway and fail with `SecurityException: Unknown calling package name 'com.google.android.gms'` from Maps dynamite. Maps is started with the application id `com.example.tada`. The manifest queries `com.google.android.gms` and enables hardware acceleration so that startup uses this package. AQICN and BigDataCloud still need their own keys to return data. Do not commit keys.
 
 Optional: `BOOKS_BASE_URL`. Leave it empty to use the in-app books mock. Set it to a real base URL (with or without a trailing slash) to bind Retrofit to `POST /books` and `GET /books` instead. Use cases and screens do not change.
 
@@ -44,7 +50,7 @@ The app requests fine location. After permission is granted it waits for a fix, 
 
 ## What the screens do
 
-**Screen 1.** The map sits under the status bar and above the bottom card. A pin marks the center. The top-right `aqi` is the air quality at that center. It is requested when the camera stops, including before Set A and after both points are set, and the previous request is cancelled if the camera moves again. That refresh does not use a full-screen loader.
+**Screen 1.** The map sits under the status bar and above the bottom card once the manifest contains a Maps key. A pin marks the center. The top-right `aqi` is the air quality at that center. It is requested when the camera stops, including before Set A and after both points are set, and the previous request is cancelled if the camera moves again. That refresh does not use a full-screen loader. Without a key, that corner value is not requested and the screen shows how to set `MAPS_API_KEY` instead of the map.
 
 Set A and Set B use a blocking loader and store that center’s coordinates, reverse-geocode address, and air quality. The address is the two `localityInfo.administrative` entries with the highest `order`, joined in ascending `order`. A failed address or air-quality store stays on the same step and does not write the point. Dragging does not change A or B, does not reverse-geocode, and does not write the points file.
 
