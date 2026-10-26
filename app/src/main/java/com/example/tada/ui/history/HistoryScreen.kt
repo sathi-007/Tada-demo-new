@@ -68,7 +68,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                         modifier = Modifier.weight(1f),
                     )
                 }
-                HorizontalDivider()
+                HorizontalDivider(thickness = 4.dp, color = Color(0xFF9E9E9E))
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(state.rows) { row ->
                         HistoryItem(row)

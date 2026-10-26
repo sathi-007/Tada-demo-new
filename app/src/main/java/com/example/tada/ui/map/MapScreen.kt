@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -177,6 +178,13 @@ fun MapScreen(
 
     Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
         Column(modifier = Modifier.fillMaxSize()) {
+            if (keyStatus == MapsApiKeyStatus.Ready) {
+                AirQualityPanel(
+                    aqi = state.cornerAqi,
+                    loading = state.cornerAqiLoading,
+                    error = state.cornerError,
+                )
+            }
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (keyStatus) {
                     MapsApiKeyStatus.Missing -> MapsSetupMessage(
@@ -206,12 +214,6 @@ fun MapScreen(
                                 .align(Alignment.Center)
                                 .size(CENTER_PIN_WIDTH, CENTER_PIN_HEIGHT)
                                 .offset(y = -CENTER_PIN_HEIGHT / 2),
-                        )
-                        AirQualityChip(
-                            aqi = state.cornerAqi,
-                            loading = state.cornerAqiLoading,
-                            error = state.cornerError,
-                            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
                         )
                     } else {
                         CircularProgressIndicator(
@@ -258,36 +260,32 @@ private fun locationPermissions(): Array<String> = arrayOf(
 )
 
 @Composable
-private fun AirQualityChip(
+private fun AirQualityPanel(
     aqi: Int?,
     loading: Boolean,
     error: FailureReason?,
-    modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.End) {
-        Surface(
-            color = Color.White.copy(alpha = 0.94f),
-            shape = RoundedCornerShape(8.dp),
-            shadowElevation = 2.dp,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(text = stringResource(R.string.aqi), color = TadaMuted)
-                Spacer(modifier = Modifier.width(8.dp))
-                when {
-                    loading -> CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = TadaYellow,
-                    )
-                    aqi != null -> Text(
-                        text = aqi.toString(),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                    )
-                }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.End,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = stringResource(R.string.aqi), color = TadaMuted, fontSize = 16.sp)
+            Spacer(modifier = Modifier.width(10.dp))
+            when {
+                loading -> CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = TadaYellow,
+                )
+                aqi != null -> Text(
+                    text = aqi.toString(),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                )
             }
         }
         if (error != null && !loading) {
@@ -295,7 +293,8 @@ private fun AirQualityChip(
                 text = failureMessage(error),
                 color = Color(0xFFB3261E),
                 fontSize = 12.sp,
-                modifier = Modifier.padding(top = 4.dp),
+                textAlign = TextAlign.End,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
         }
     }

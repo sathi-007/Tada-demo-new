@@ -46,20 +46,32 @@ fun NicknameScreen(
             .imePadding()
             .padding(horizontal = 16.dp, vertical = 20.dp),
     ) {
-        Row(verticalAlignment = Alignment.Bottom) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = if (state.side == Side.A) stringResource(R.string.side_a) else stringResource(R.string.side_b),
                 fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
+                fontSize = 28.sp,
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text(text = state.address, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = stringResource(R.string.aqi), color = TadaMuted)
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(text = state.aqi?.toString().orEmpty(), fontWeight = FontWeight.Medium)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = state.address, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.aqi),
+                        color = TadaMuted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = state.aqi?.toString().orEmpty(),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
         state.error?.let { reason ->
             Spacer(modifier = Modifier.height(12.dp))
