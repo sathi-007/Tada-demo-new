@@ -74,9 +74,11 @@ import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
 import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 @Composable
 fun MapScreen(
@@ -122,17 +124,19 @@ fun MapScreen(
             return@LaunchedEffect
         }
         val initialized = runCatching {
-            suspendCancellableCoroutine { continuation ->
-                val status = MapsInitializer.initialize(
-                    context.applicationContext,
-                    MapsInitializer.Renderer.LATEST,
-                ) {
-                    if (continuation.isActive) continuation.resume(Unit)
-                }
-                if (status != ConnectionResult.SUCCESS && continuation.isActive) {
-                    continuation.resumeWith(
-                        Result.failure(IllegalStateException("MapsInitializer status $status")),
-                    )
+            withContext(Dispatchers.IO) {
+                suspendCancellableCoroutine { continuation ->
+                    val status = MapsInitializer.initialize(
+                        context.applicationContext,
+                        MapsInitializer.Renderer.LATEST,
+                    ) {
+                        if (continuation.isActive) continuation.resume(Unit)
+                    }
+                    if (status != ConnectionResult.SUCCESS && continuation.isActive) {
+                        continuation.resumeWith(
+                            Result.failure(IllegalStateException("MapsInitializer status $status")),
+                        )
+                    }
                 }
             }
         }
