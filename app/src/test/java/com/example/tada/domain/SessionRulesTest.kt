@@ -19,7 +19,6 @@ import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.GeocodeRepository
 import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
-import com.example.tada.domain.usecase.ClearPointsUseCase
 import com.example.tada.domain.usecase.FormatAdministrativeAddress
 import com.example.tada.domain.usecase.MatchSavedPlace
 import com.example.tada.domain.usecase.ResetSelectionUseCase
@@ -84,7 +83,7 @@ class SessionRulesTest {
     }
 
     @Test
-    fun pointsFileWritesOnlyOnSetASetBAndNickname_clearDeletes_backDoesNot() = runTest {
+    fun pointsFileWritesOnlyOnSetASetBAndNickname_backDoesNotDelete() = runTest {
         val file = tempFile("points.json")
         val store = PointsFileStore(file, json)
         store.upsert(Side.B, PointDto(9.0, 8.0, "kept address", 3, "office"))
@@ -99,7 +98,6 @@ class SessionRulesTest {
             clock = AppClock { 0L },
         )
         val reset = ResetSelectionUseCase(selection)
-        val clear = ClearPointsUseCase(points, selection)
 
         setPoint(Side.A, 37.1, 127.1)
         val afterSetA = store.read()
@@ -123,19 +121,9 @@ class SessionRulesTest {
         assertEquals(Selection.Empty, selection.current())
         assertEquals(bookedElsewhere, file.readText())
         assertTrue(file.exists())
-
-        selection.update(
-            Selection(
-                step = ActionStep.Book,
-                a = saved.value.a,
-                b = saved.value.b,
-            ),
-        )
-        clear()
-        assertEquals(Selection.Empty, selection.current())
-        assertFalse(file.exists())
-        assertNull(store.read().a)
-        assertNull(store.read().b)
+        assertEquals("home", store.read().a?.nickname)
+        assertEquals(37.2, store.read().b?.latitude ?: 0.0, 0.001)
+        assertEquals("", store.read().b?.nickname)
     }
 
     @Test

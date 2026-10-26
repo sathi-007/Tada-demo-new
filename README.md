@@ -52,9 +52,11 @@ The app requests fine location. After permission is granted it waits for a fix, 
 
 **Screen 1.** The map sits under the status bar and above the bottom card once the manifest contains a Maps key. A pin marks the center. The top-right `aqi` is the air quality at that center. It is requested when the camera stops, including before Set A and after both points are set, and the previous request is cancelled if the camera moves again. That refresh does not use a full-screen loader. Without a key, that corner value is not requested and the screen shows how to set `MAPS_API_KEY` instead of the map.
 
-Set A and Set B use a blocking loader and store that center’s coordinates, address, nickname, and air quality. The address is the two `localityInfo.administrative` entries with the highest `order`, joined in ascending `order`. Before calling reverse geocode, the tap looks for a saved place whose latitude and longitude match through the third decimal, cutting off extra digits instead of rounding. `37.5642, 127.0016` matches `37.5645, 127.0018`. `37.5650` does not. On a match, the row shows that place’s address and nickname and a new air-quality value is fetched. Reverse geocode is not called. On a miss, both are fetched and the place is recorded. A failed address or air-quality store stays on the same step and does not write the point. Dragging does not change A or B, does not reverse-geocode, and does not write the points file or the place cache. The corner `aqi` refresh does not write the cache.
+The status bar and the navigation or gesture bar are tinted blue. Screen content stays inside those insets. The center marker is the app pin, not the default Google pin.
 
-Clear sits under the yellow button. It is enabled when A or B has a value. It deletes the points-file records, returns the button to Set A, and recenters on the current location. It does not delete bookings or saved places.
+Set A and Set B use a blocking loader and store that center’s coordinates, address, nickname, and air quality. The address is the two `localityInfo.administrative` entries with the highest `order`, joined in ascending `order`. Before calling reverse geocode, the tap looks for a saved place whose latitude and longitude match through the third decimal, cutting off extra digits instead of rounding. `37.5642, 127.0016` matches `37.5645, 127.0018`. `37.5650` does not. On a match, the row shows that place’s address and nickname and a new air-quality value is fetched. Reverse geocode is not called. On a miss, both are fetched and the place is recorded. A failed address or air-quality store stays on the same step and does not write the point. Dragging does not change A or B, does not reverse-geocode, and does not write the points file or the place cache. The corner `aqi` is requested 500ms after the camera stops. Another move cancels that wait and any request already in flight. Set A and Set B do not wait. The corner refresh does not write the cache.
+
+The yellow control reads Set A, then Set B, then Book. There is no Clear control.
 
 Launch starts empty on Set A. Saved points and saved places are not restored onto the screen. The place cache is still there for the next Set A or Set B.
 
@@ -68,11 +70,11 @@ Launch starts empty on Set A. Saved points and saved places are not restored ont
 
 ```
 Compose screens  ->  one ViewModel per screen
-                 ->  use cases (address, place match, Set A / Set B, nickname, clear, back, book, history, camera target, center air quality)
+                 ->  use cases (address, place match, Set A / Set B, nickname, back, book, history, camera target, center air quality)
                  ->  repositories
                  ->  Retrofit (AQICN, BigDataCloud, books), the points and places JSON files, fused location, Google Maps
 ```
 
 Hilt is wired at the edges. The books mock implements the Retrofit `BooksApi` and is the object bound when `BOOKS_BASE_URL` is empty. Business rules are in use cases, not in composables or ViewModels.
 
-Points live in `files/points.json` and are written only on Set A, Set B, and nickname save. A write updates that side and leaves the other side in place. Only Clear removes those records. Saved places live in `files/places.json`. A new place is recorded on a Set A or Set B miss, and a nickname save updates the newest place in that bucket. Clear and the corner air-quality refresh do not change that file. Bookings live in `files/bookings.json` and are not cleared with the points.
+Points live in `files/points.json` and are written only on Set A, Set B, and nickname save. A write updates that side and leaves the other side in place. Saved places live in `files/places.json`. A new place is recorded on a Set A or Set B miss, and a nickname save updates the newest place in that bucket. Back from Screen 3 clears the on-screen A and B and does not delete either file. The corner air-quality refresh does not change the place cache. Bookings live in `files/bookings.json`.

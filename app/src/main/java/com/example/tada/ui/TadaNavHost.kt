@@ -1,6 +1,8 @@
 package com.example.tada.ui
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,7 +26,12 @@ object Routes {
 @Composable
 fun TadaNavHost() {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = Routes.MAP) {
+    TadaSafeArea {
+    NavHost(
+        navController = navController,
+        startDestination = Routes.MAP,
+        modifier = Modifier.fillMaxSize(),
+    ) {
         composable(Routes.MAP) {
             MapScreen(
                 onOpenNickname = { side -> navController.navigate(Routes.nickname(side)) },
@@ -48,5 +55,6 @@ fun TadaNavHost() {
         composable(Routes.HISTORY) {
             HistoryScreen()
         }
+    }
     }
 }

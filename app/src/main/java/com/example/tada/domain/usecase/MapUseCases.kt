@@ -161,16 +161,6 @@ class SetPointUseCase @Inject constructor(
     }
 }
 
-class ClearPointsUseCase @Inject constructor(
-    private val pointsRepository: PointsRepository,
-    private val selectionRepository: SelectionRepository,
-) {
-    suspend operator fun invoke() {
-        pointsRepository.clear()
-        selectionRepository.update(Selection.Empty)
-    }
-}
-
 class ResetSelectionUseCase @Inject constructor(
     private val selectionRepository: SelectionRepository,
 ) {

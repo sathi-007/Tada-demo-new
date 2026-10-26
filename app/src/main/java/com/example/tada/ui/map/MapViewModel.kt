@@ -8,7 +8,6 @@ import com.example.tada.domain.model.FailureReason
 import com.example.tada.domain.model.GeoCoordinate
 import com.example.tada.domain.model.Side
 import com.example.tada.domain.repository.SelectionRepository
-import com.example.tada.domain.usecase.ClearPointsUseCase
 import com.example.tada.domain.usecase.LoadCameraTargetUseCase
 import com.example.tada.domain.usecase.PointRowLabel
 import com.example.tada.domain.usecase.RefreshCenterAirQualityUseCase
@@ -23,9 +22,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+internal const val CENTER_AQI_DEBOUNCE_MILLIS = 500L
 
 data class MapUiState(
     val step: ActionStep = ActionStep.SetA,
@@ -33,7 +35,6 @@ data class MapUiState(
     val bLabel: String = "",
     val aSet: Boolean = false,
     val bSet: Boolean = false,
-    val clearEnabled: Boolean = false,
     val cornerAqi: Int? = null,
     val cornerAqiLoading: Boolean = false,
     val cornerError: FailureReason? = null,
@@ -55,7 +56,6 @@ sealed interface MapEvent {
 class MapViewModel @Inject constructor(
     private val selectionRepository: SelectionRepository,
     private val setPoint: SetPointUseCase,
-    private val clearPoints: ClearPointsUseCase,
     private val refreshCenterAirQuality: RefreshCenterAirQualityUseCase,
     private val loadCameraTarget: LoadCameraTargetUseCase,
     private val pointRowLabel: PointRowLabel,
@@ -83,7 +83,6 @@ class MapViewModel @Inject constructor(
                         bLabel = pointRowLabel.label(selection.b),
                         aSet = selection.a != null,
                         bSet = selection.b != null,
-                        clearEnabled = selection.hasAnyPoint,
                     )
                 }
             }
@@ -120,11 +119,12 @@ class MapViewModel @Inject constructor(
     fun onCameraIdle(latitude: Double, longitude: Double) {
         if (_ui.value.cameraTarget == null) return
         val center = GeoCoordinate(latitude, longitude)
+        _ui.update { it.copy(currentCenter = center) }
         centerAqiJob?.cancel()
         centerAqiJob = viewModelScope.launch {
+            delay(CENTER_AQI_DEBOUNCE_MILLIS)
             _ui.update {
                 it.copy(
-                    currentCenter = center,
                     cornerAqi = null,
                     cornerAqiLoading = true,
                     cornerError = null,
@@ -159,23 +159,6 @@ class MapViewModel @Inject constructor(
             ActionStep.SetA -> store(Side.A, center)
             ActionStep.SetB -> store(Side.B, center)
             ActionStep.Book -> openBooking()
-        }
-    }
-
-    fun onClear() {
-        val state = _ui.value
-        if (!state.clearEnabled || state.blocking) return
-        viewModelScope.launch {
-            _ui.update { it.copy(blocking = true, bannerError = null) }
-            try {
-                clearPoints()
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                _ui.update { it.copy(blocking = false, bannerError = FailureReason.Network) }
-                return@launch
-            }
-            publishFix(loadCameraTarget())
         }
     }
 

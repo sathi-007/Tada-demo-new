@@ -11,11 +11,11 @@ import com.example.tada.domain.model.SavedPlace
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
 import com.example.tada.domain.repository.AppClock
-import com.example.tada.domain.usecase.ClearPointsUseCase
 import com.example.tada.domain.usecase.FormatAdministrativeAddress
 import com.example.tada.domain.usecase.MatchSavedPlace
 import com.example.tada.domain.usecase.PointRowLabel
 import com.example.tada.domain.usecase.RefreshCenterAirQualityUseCase
+import com.example.tada.domain.usecase.ResetSelectionUseCase
 import com.example.tada.domain.usecase.SaveNicknameUseCase
 import com.example.tada.domain.usecase.SetPointUseCase
 import kotlinx.coroutines.Dispatchers
@@ -146,7 +146,7 @@ class PlaceCacheTest {
     }
 
     @Test
-    fun clearAndRelaunchKeepTheCacheOffTheScreen() = runTest {
+    fun backAndRelaunchKeepTheCacheOffTheScreen() = runTest {
         val placesFile = tempFile("places.json")
         val pointsFile = tempFile("points.json")
         val places = PlacesRepositoryImpl(PlacesFileStore(placesFile, json), Dispatchers.Unconfined)
@@ -156,13 +156,14 @@ class PlaceCacheTest {
         val aqi = FakeAqi().apply { fail = false }
         val set = setPoint(geocode, aqi, points, places, selection, clockMillis = 5L)
         val save = SaveNicknameUseCase(points, places, selection, match, AppClock { 6L })
-        val clear = ClearPointsUseCase(points, selection)
 
         set(Side.A, 37.5642, 127.0016)
         save(Side.A, "gangnam")
-        clear()
+        val pointsText = pointsFile.readText()
+        ResetSelectionUseCase(selection)()
 
-        assertFalse(pointsFile.exists())
+        assertEquals(pointsText, pointsFile.readText())
+        assertTrue(pointsFile.exists())
         assertEquals(Selection.Empty, selection.current())
         assertTrue(placesFile.exists())
         assertEquals("gangnam", places.read().single().nickname)

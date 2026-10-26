@@ -2,7 +2,6 @@ package com.example.tada.ui.map
 
 import com.example.tada.data.local.PointsFileStore
 import com.example.tada.data.remote.PointDto
-import com.example.tada.data.repository.PointsRepositoryImpl
 import com.example.tada.data.repository.SelectionRepositoryImpl
 import com.example.tada.domain.FakeGeocode
 import com.example.tada.domain.MemoryPlaces
@@ -18,7 +17,6 @@ import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.DeviceLocationRepository
 import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
-import com.example.tada.domain.usecase.ClearPointsUseCase
 import com.example.tada.domain.usecase.FormatAdministrativeAddress
 import com.example.tada.domain.usecase.LoadCameraTargetUseCase
 import com.example.tada.domain.usecase.MatchSavedPlace
@@ -35,6 +33,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.serialization.json.Json
@@ -96,7 +95,18 @@ class MapViewModelTest {
         aqi.calls.clear()
 
         vm.onCameraIdle(10.0, 20.0)
-        scope.advanceTimeBy(100)
+        scope.advanceTimeBy(CENTER_AQI_DEBOUNCE_MILLIS - 1)
+        scope.runCurrent()
+        assertEquals(0, aqi.calls.size)
+        assertFalse(vm.ui.value.cornerAqiLoading)
+
+        vm.onCameraMoving(10.5, 20.5)
+        scope.advanceUntilIdle()
+        assertEquals(0, aqi.calls.size)
+
+        vm.onCameraIdle(10.0, 20.0)
+        scope.advanceTimeBy(CENTER_AQI_DEBOUNCE_MILLIS)
+        scope.runCurrent()
         assertEquals(1, aqi.calls.size)
         assertTrue(vm.ui.value.cornerAqiLoading)
         assertFalse(vm.ui.value.blocking)
@@ -112,6 +122,8 @@ class MapViewModelTest {
         aqi.delayMs = 0
         aqi.result = 42
         vm.onCameraIdle(12.0, 22.0)
+        scope.advanceTimeBy(CENTER_AQI_DEBOUNCE_MILLIS)
+        scope.runCurrent()
         scope.advanceUntilIdle()
 
         assertEquals(42, vm.ui.value.cornerAqi)
@@ -149,44 +161,10 @@ class MapViewModelTest {
 
         assertEquals(ActionStep.SetA, vm.ui.value.step)
         assertEquals("", vm.ui.value.aLabel)
-        assertFalse(vm.ui.value.clearEnabled)
         assertEquals(token, vm.ui.value.recenterToken)
         assertEquals(0, points.clears)
         assertTrue(points.upserts.isEmpty())
         assertEquals(fileText, file.readText())
-    }
-
-    @Test
-    fun clearDeletesPointsAndRecenters() = runVm { scope ->
-        val file = tempFile("points.json")
-        val store = PointsFileStore(file, Json { encodeDefaults = true })
-        store.upsert(com.example.tada.domain.model.Side.A, PointDto(1.0, 2.0, "saved A", 4, "home"))
-        store.upsert(com.example.tada.domain.model.Side.B, PointDto(3.0, 4.0, "saved B", 5, "office"))
-        val selection = SelectionRepositoryImpl()
-        selection.update(
-            Selection(
-                step = ActionStep.Book,
-                a = MapPoint(1.0, 2.0, "saved A", 4, "home"),
-                b = MapPoint(3.0, 4.0, "saved B", 5, "office"),
-            ),
-        )
-        val vm = viewModel(
-            selection = selection,
-            points = PointsRepositoryImpl(store, Dispatchers.Unconfined),
-        )
-        vm.onLocationPermissionGranted()
-        scope.advanceUntilIdle()
-        val token = vm.ui.value.recenterToken
-
-        vm.onClear()
-        scope.advanceUntilIdle()
-
-        assertFalse(file.exists())
-        assertEquals(ActionStep.SetA, vm.ui.value.step)
-        assertEquals("", vm.ui.value.aLabel)
-        assertFalse(vm.ui.value.clearEnabled)
-        assertEquals(token + 1, vm.ui.value.recenterToken)
-        assertFalse(vm.ui.value.blocking)
     }
 
     @Test
@@ -255,7 +233,6 @@ private fun viewModel(
         MatchSavedPlace(),
         AppClock { 1_000L },
     ),
-    clearPoints = ClearPointsUseCase(points, selection),
     refreshCenterAirQuality = RefreshCenterAirQualityUseCase(aqi),
     loadCameraTarget = LoadCameraTargetUseCase(FakeLocation()),
     pointRowLabel = PointRowLabel(),
