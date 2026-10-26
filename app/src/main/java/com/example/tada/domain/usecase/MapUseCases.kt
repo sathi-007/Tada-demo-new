@@ -7,11 +7,14 @@ import com.example.tada.domain.model.FailureReason
 import com.example.tada.domain.model.GeoCoordinate
 import com.example.tada.domain.model.GeocodeFailedException
 import com.example.tada.domain.model.MapPoint
+import com.example.tada.domain.model.SavedPlace
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
 import com.example.tada.domain.repository.AqiRepository
+import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.DeviceLocationRepository
 import com.example.tada.domain.repository.GeocodeRepository
+import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
 import com.example.tada.domain.repository.SelectionRepository
 import kotlinx.coroutines.CancellationException
@@ -42,8 +45,11 @@ class SetPointUseCase @Inject constructor(
     private val geocodeRepository: GeocodeRepository,
     private val aqiRepository: AqiRepository,
     private val pointsRepository: PointsRepository,
+    private val placesRepository: PlacesRepository,
     private val selectionRepository: SelectionRepository,
     private val formatAddress: FormatAdministrativeAddress,
+    private val matchSavedPlace: MatchSavedPlace,
+    private val clock: AppClock,
 ) {
     suspend operator fun invoke(
         side: Side,
@@ -55,6 +61,73 @@ class SetPointUseCase @Inject constructor(
             return DomainResult.Err(FailureReason.NotReady)
         }
 
+        val cached = try {
+            matchSavedPlace.newest(placesRepository.read(), latitude, longitude)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            return DomainResult.Err(FailureReason.Network)
+        }
+
+        val point = if (cached != null) {
+            val aqi = try {
+                aqiRepository.fetch(latitude, longitude)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: AirQualityFailedException) {
+                return DomainResult.Err(FailureReason.AirQuality)
+            } catch (_: Exception) {
+                return DomainResult.Err(FailureReason.Network)
+            }
+            MapPoint(
+                latitude = latitude,
+                longitude = longitude,
+                address = cached.address,
+                aqi = aqi,
+                nickname = cached.nickname,
+            )
+        } else {
+            val fetched = fetchNewPlace(latitude, longitude)
+            when (fetched) {
+                is DomainResult.Err -> return fetched
+                is DomainResult.Ok -> fetched.value
+            }
+        }
+
+        val fresh = selectionRepository.current()
+        if (fresh.step != expected) {
+            return DomainResult.Err(FailureReason.NotReady)
+        }
+        val updated = when (side) {
+            Side.A -> fresh.copy(step = ActionStep.SetB, a = point)
+            Side.B -> fresh.copy(step = ActionStep.Book, b = point)
+        }
+        return try {
+            if (cached == null) {
+                placesRepository.append(
+                    SavedPlace(
+                        latitude = latitude,
+                        longitude = longitude,
+                        address = point.address,
+                        nickname = point.nickname,
+                        savedAtMillis = clock.nowMillis(),
+                    ),
+                )
+            }
+            pointsRepository.upsert(side, point)
+            selectionRepository.update(updated)
+            DomainResult.Ok(updated)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            DomainResult.Err(FailureReason.Network)
+        }
+    }
+
+    private suspend fun fetchNewPlace(
+        latitude: Double,
+        longitude: Double,
+    ): DomainResult<MapPoint> {
         val areas: List<com.example.tada.domain.model.AdminArea>
         val aqi: Int
         try {
@@ -76,31 +149,15 @@ class SetPointUseCase @Inject constructor(
 
         val address = formatAddress.format(areas)
             ?: return DomainResult.Err(FailureReason.Geocode)
-
-        val fresh = selectionRepository.current()
-        if (fresh.step != expected) {
-            return DomainResult.Err(FailureReason.NotReady)
-        }
-        val point = MapPoint(
-            latitude = latitude,
-            longitude = longitude,
-            address = address,
-            aqi = aqi,
-            nickname = "",
+        return DomainResult.Ok(
+            MapPoint(
+                latitude = latitude,
+                longitude = longitude,
+                address = address,
+                aqi = aqi,
+                nickname = "",
+            ),
         )
-        val updated = when (side) {
-            Side.A -> fresh.copy(step = ActionStep.SetB, a = point)
-            Side.B -> fresh.copy(step = ActionStep.Book, b = point)
-        }
-        return try {
-            pointsRepository.upsert(side, point)
-            selectionRepository.update(updated)
-            DomainResult.Ok(updated)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            DomainResult.Err(FailureReason.Network)
-        }
     }
 }
 

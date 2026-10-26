@@ -5,6 +5,7 @@ import com.example.tada.data.remote.PointDto
 import com.example.tada.data.repository.PointsRepositoryImpl
 import com.example.tada.data.repository.SelectionRepositoryImpl
 import com.example.tada.domain.FakeGeocode
+import com.example.tada.domain.MemoryPlaces
 import com.example.tada.domain.RecordingPoints
 import com.example.tada.domain.model.ActionStep
 import com.example.tada.domain.model.AirQualityFailedException
@@ -13,11 +14,14 @@ import com.example.tada.domain.model.GeoCoordinate
 import com.example.tada.domain.model.MapPoint
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.repository.AqiRepository
+import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.DeviceLocationRepository
+import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
 import com.example.tada.domain.usecase.ClearPointsUseCase
 import com.example.tada.domain.usecase.FormatAdministrativeAddress
 import com.example.tada.domain.usecase.LoadCameraTargetUseCase
+import com.example.tada.domain.usecase.MatchSavedPlace
 import com.example.tada.domain.usecase.PointRowLabel
 import com.example.tada.domain.usecase.RefreshCenterAirQualityUseCase
 import com.example.tada.domain.usecase.ResetSelectionUseCase
@@ -70,6 +74,7 @@ class MapViewModelTest {
         val aqi = DelayingAqi(delayMs = 5_000, result = 7)
         val geocode = FakeGeocode()
         val points = RecordingPoints()
+        val places = MemoryPlaces()
         val selection = SelectionRepositoryImpl()
         selection.update(
             Selection(
@@ -78,7 +83,13 @@ class MapViewModelTest {
                 b = MapPoint(3.0, 4.0, "address B", 2, "office"),
             ),
         )
-        val vm = viewModel(selection = selection, aqi = aqi, geocode = geocode, points = points)
+        val vm = viewModel(
+            selection = selection,
+            aqi = aqi,
+            geocode = geocode,
+            points = points,
+            places = places,
+        )
         vm.onLocationPermissionGranted()
         scope.advanceUntilIdle()
         val tokenAfterFix = vm.ui.value.recenterToken
@@ -109,6 +120,7 @@ class MapViewModelTest {
         assertEquals(0, geocode.calls)
         assertTrue(points.upserts.isEmpty())
         assertEquals(0, points.clears)
+        assertTrue(places.places.isEmpty())
         assertEquals(tokenAfterFix, vm.ui.value.recenterToken)
     }
 
@@ -230,9 +242,19 @@ private fun viewModel(
     aqi: AqiRepository = DelayingAqi(),
     geocode: FakeGeocode = FakeGeocode(),
     points: PointsRepository = RecordingPoints(),
+    places: PlacesRepository = MemoryPlaces(),
 ): MapViewModel = MapViewModel(
     selectionRepository = selection,
-    setPoint = SetPointUseCase(geocode, aqi, points, selection, FormatAdministrativeAddress()),
+    setPoint = SetPointUseCase(
+        geocode,
+        aqi,
+        points,
+        places,
+        selection,
+        FormatAdministrativeAddress(),
+        MatchSavedPlace(),
+        AppClock { 1_000L },
+    ),
     clearPoints = ClearPointsUseCase(points, selection),
     refreshCenterAirQuality = RefreshCenterAirQualityUseCase(aqi),
     loadCameraTarget = LoadCameraTargetUseCase(FakeLocation()),

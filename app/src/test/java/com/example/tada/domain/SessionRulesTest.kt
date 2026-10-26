@@ -13,11 +13,15 @@ import com.example.tada.domain.model.GeocodeFailedException
 import com.example.tada.domain.model.MapPoint
 import com.example.tada.domain.model.Selection
 import com.example.tada.domain.model.Side
+import com.example.tada.domain.model.SavedPlace
 import com.example.tada.domain.repository.AqiRepository
+import com.example.tada.domain.repository.AppClock
 import com.example.tada.domain.repository.GeocodeRepository
+import com.example.tada.domain.repository.PlacesRepository
 import com.example.tada.domain.repository.PointsRepository
 import com.example.tada.domain.usecase.ClearPointsUseCase
 import com.example.tada.domain.usecase.FormatAdministrativeAddress
+import com.example.tada.domain.usecase.MatchSavedPlace
 import com.example.tada.domain.usecase.ResetSelectionUseCase
 import com.example.tada.domain.usecase.SaveNicknameUseCase
 import com.example.tada.domain.usecase.SetPointUseCase
@@ -87,7 +91,13 @@ class SessionRulesTest {
         val points = PointsRepositoryImpl(store, Dispatchers.Unconfined)
         val selection = SelectionRepositoryImpl()
         val setPoint = setPointUseCase(FakeGeocode(), FakeAqi().apply { fail = false }, points, selection)
-        val saveNickname = SaveNicknameUseCase(points, selection)
+        val saveNickname = SaveNicknameUseCase(
+            pointsRepository = points,
+            placesRepository = MemoryPlaces(),
+            selectionRepository = selection,
+            matchSavedPlace = MatchSavedPlace(),
+            clock = AppClock { 0L },
+        )
         val reset = ResetSelectionUseCase(selection)
         val clear = ClearPointsUseCase(points, selection)
 
@@ -132,7 +142,13 @@ class SessionRulesTest {
     fun nicknameLengthAndBlankLine() = runTest {
         val points = RecordingPoints()
         val selection = SelectionRepositoryImpl()
-        val save = SaveNicknameUseCase(points, selection)
+        val save = SaveNicknameUseCase(
+            pointsRepository = points,
+            placesRepository = MemoryPlaces(),
+            selectionRepository = selection,
+            matchSavedPlace = MatchSavedPlace(),
+            clock = AppClock { 0L },
+        )
         val point = MapPoint(1.0, 2.0, "Seocho District, Yangjae 2(i)-dong", 4, "seed")
         selection.update(Selection(ActionStep.SetB, point, null))
 
@@ -156,12 +172,16 @@ class SessionRulesTest {
         aqi: AqiRepository,
         points: PointsRepository,
         selection: SelectionRepositoryImpl,
+        places: PlacesRepository = MemoryPlaces(),
     ) = SetPointUseCase(
         geocodeRepository = geocode,
         aqiRepository = aqi,
         pointsRepository = points,
+        placesRepository = places,
         selectionRepository = selection,
         formatAddress = FormatAdministrativeAddress(),
+        matchSavedPlace = MatchSavedPlace(),
+        clock = AppClock { 1_000L },
     )
 }
 
@@ -190,6 +210,21 @@ class FakeAqi : AqiRepository {
         calls += 1
         if (fail) throw AirQualityFailedException()
         return value
+    }
+}
+
+class MemoryPlaces : PlacesRepository {
+    val places = mutableListOf<SavedPlace>()
+
+    override suspend fun read(): List<SavedPlace> = places.toList()
+
+    override suspend fun append(place: SavedPlace) {
+        places += place
+    }
+
+    override suspend fun write(places: List<SavedPlace>) {
+        this.places.clear()
+        this.places += places
     }
 }
 

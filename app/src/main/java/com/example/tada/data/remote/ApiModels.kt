@@ -69,6 +69,15 @@ data class PointsFileDto(
     val b: PointDto? = null,
 )
 
+@Serializable
+data class SavedPlaceDto(
+    val latitude: Double,
+    val longitude: Double,
+    val address: String,
+    val nickname: String = "",
+    val savedAtMillis: Long,
+)
+
 data class ApiCredentials(
     val aqiToken: String,
     val geocodeKey: String,
