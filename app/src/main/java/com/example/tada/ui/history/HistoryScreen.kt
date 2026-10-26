@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -93,7 +94,7 @@ fun HistoryScreen(
 @Composable
 private fun TotalColumn(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, color = TadaMuted)
+        Text(text = label, color = TadaMuted,fontWeight = FontWeight.Medium)
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = value, fontWeight = FontWeight.Bold, fontSize = 28.sp)
     }
@@ -107,16 +108,32 @@ private fun HistoryItem(row: HistoryRow, onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text(
-            text = stringResource(R.string.history_side_line, stringResource(R.string.side_a), row.aName),
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-        )
+        Row {
+            Text(
+                text = stringResource(R.string.side_a),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            )
+            Spacer(modifier = Modifier.width(24.dp))
+            Text(
+                text = row.aName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            )
+        }
         Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = stringResource(R.string.history_side_line, stringResource(R.string.side_b), row.bName),
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-        )
+        Row {
+            Text(
+                text = stringResource(R.string.side_b),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            )
+            Spacer(modifier = Modifier.width(24.dp))
+            Text(
+                text = row.bName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+            )
+        }
     }
 }

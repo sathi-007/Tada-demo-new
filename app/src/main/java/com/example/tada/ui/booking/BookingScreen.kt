@@ -112,7 +112,7 @@ private fun EqualColumns(label: String, value: String) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, color = TadaMuted, modifier = Modifier.weight(1f))
+        Text(text = label, color = TadaMuted, modifier = Modifier.weight(1f),fontWeight = FontWeight.Medium,)
         Text(text = value, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
     }
 }
@@ -123,7 +123,7 @@ private fun LabelValue(label: String, value: String, emphasizeValue: Boolean = f
         modifier = Modifier.fillMaxWidth().heightIn(min = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, color = TadaMuted, modifier = Modifier.weight(1f))
+        Text(text = label, color = TadaMuted, modifier = Modifier.weight(1f),fontWeight = FontWeight.Medium)
         Text(
             text = value,
             fontWeight = if (emphasizeValue) FontWeight.Bold else FontWeight.Medium,

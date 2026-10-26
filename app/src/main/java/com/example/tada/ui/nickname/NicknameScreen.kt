@@ -64,6 +64,7 @@ fun NicknameScreen(
                         text = stringResource(R.string.aqi),
                         color = TadaMuted,
                         modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = state.aqi?.toString().orEmpty(),
@@ -83,7 +84,7 @@ fun NicknameScreen(
             onValueChange = viewModel::onNicknameChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            placeholder = { Text(stringResource(R.string.nickname)) },
+            placeholder = { Text(stringResource(R.string.nickname), fontWeight = FontWeight.Medium) },
         )
         Spacer(modifier = Modifier.height(12.dp))
         YellowButton(

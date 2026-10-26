@@ -306,7 +306,8 @@ private fun AirQualityPanel(
         horizontalAlignment = Alignment.End,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = stringResource(R.string.aqi), color = TadaMuted, fontSize = 16.sp)
+            Text(text = stringResource(R.string.aqi), color = TadaMuted, fontSize = 16.sp, fontWeight = FontWeight.Medium
+            )
             Spacer(modifier = Modifier.width(10.dp))
             when {
                 loading -> CircularProgressIndicator(
