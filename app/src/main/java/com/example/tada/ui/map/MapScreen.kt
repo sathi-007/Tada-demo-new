@@ -41,6 +41,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -56,8 +58,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.tada.R
 import com.example.tada.domain.model.ActionStep
 import com.example.tada.maps.MapsApiKeyStatus
+import com.example.tada.maps.composeMap
 import com.example.tada.maps.mapsApiKeyStatus
 import com.example.tada.maps.readMergedMapsApiKey
+import com.example.tada.maps.retryMapInit
 import com.example.tada.domain.model.FailureReason
 import com.example.tada.domain.model.Side
 import com.example.tada.ui.components.YellowButton
@@ -66,19 +70,21 @@ import com.example.tada.ui.theme.TadaMuted
 import com.example.tada.ui.theme.TadaRow
 import com.example.tada.ui.theme.TadaYellow
 import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapsInitializer
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.internal.GoogleMapsInitializer
+import com.google.maps.android.compose.internal.InitializationState
 import com.google.maps.android.compose.rememberCameraPositionState
-import kotlin.coroutines.resume
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.isActive
 
 @Composable
 fun MapScreen(
@@ -115,38 +121,49 @@ fun MapScreen(
     val keyStatus = remember(context.packageName) {
         mapsApiKeyStatus(readMergedMapsApiKey(context))
     }
-    var mapsReady by remember { mutableStateOf(false) }
-    var initFailed by remember { mutableStateOf(false) }
+    var initializerStatus by remember { mutableStateOf(ConnectionResult.INTERNAL_ERROR) }
+    var mapSlotSize by remember { mutableStateOf(IntSize.Zero) }
+    val showMap = keyStatus == MapsApiKeyStatus.Ready &&
+        composeMap(initializerStatus, mapSlotSize.width, mapSlotSize.height)
     LaunchedEffect(keyStatus) {
         if (keyStatus != MapsApiKeyStatus.Ready) {
-            mapsReady = false
-            initFailed = false
+            initializerStatus = ConnectionResult.INTERNAL_ERROR
             return@LaunchedEffect
         }
-        val initialized = runCatching {
-            withContext(Dispatchers.IO) {
-                suspendCancellableCoroutine { continuation ->
-                    val status = MapsInitializer.initialize(
+        while (isActive) {
+            val playServices = GoogleApiAvailability.getInstance()
+                .isGooglePlayServicesAvailable(context)
+            val status = if (playServices != ConnectionResult.SUCCESS) {
+                Log.w(MAPS_LOG_TAG, "Play services unavailable for ${context.packageName}: $playServices")
+                playServices
+            } else {
+                try {
+                    // Called on the main thread. The callback runs before this returns;
+                    // the map is composed only from the returned status, not from the callback.
+                    MapsInitializer.initialize(
                         context.applicationContext,
                         MapsInitializer.Renderer.LATEST,
-                    ) {
-                        if (continuation.isActive) continuation.resume(Unit)
+                    ) { renderer ->
+                        Log.d(MAPS_LOG_TAG, "Maps renderer $renderer")
                     }
-                    if (status != ConnectionResult.SUCCESS && continuation.isActive) {
-                        continuation.resumeWith(
-                            Result.failure(IllegalStateException("MapsInitializer status $status")),
-                        )
-                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    Log.w(MAPS_LOG_TAG, "MapsInitializer threw for ${context.packageName}", error)
+                    ConnectionResult.INTERNAL_ERROR
                 }
             }
-        }
-        if (initialized.isSuccess) {
-            mapsReady = true
-            initFailed = false
-        } else {
-            mapsReady = false
-            initFailed = true
-            Log.w(MAPS_LOG_TAG, "MapsInitializer failed for ${context.packageName}", initialized.exceptionOrNull())
+            val composeReady = playServices == ConnectionResult.SUCCESS &&
+                status == ConnectionResult.SUCCESS &&
+                awaitComposeMaps(context.applicationContext)
+            initializerStatus = when {
+                composeReady -> ConnectionResult.SUCCESS
+                playServices != ConnectionResult.SUCCESS -> playServices
+                else -> ConnectionResult.INTERNAL_ERROR
+            }
+            if (!retryMapInit(playServices, initializerStatus)) break
+            Log.w(MAPS_LOG_TAG, "MapsInitializer status $status for ${context.packageName}; retrying")
+            delay(MAP_INIT_RETRY_MILLIS)
         }
     }
 
@@ -154,8 +171,8 @@ fun MapScreen(
         position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 2f)
     }
     var gesturesArmed by remember { mutableStateOf(false) }
-    LaunchedEffect(state.recenterToken, mapsReady) {
-        if (!mapsReady) return@LaunchedEffect
+    LaunchedEffect(state.recenterToken, showMap) {
+        if (!showMap) return@LaunchedEffect
         val target = state.cameraTarget ?: return@LaunchedEffect
         if (state.recenterToken == 0) return@LaunchedEffect
         gesturesArmed = false
@@ -166,8 +183,8 @@ fun MapScreen(
         gesturesArmed = true
         viewModel.onCameraIdle(target.latitude, target.longitude)
     }
-    LaunchedEffect(gesturesArmed, mapsReady) {
-        if (!mapsReady || !gesturesArmed) return@LaunchedEffect
+    LaunchedEffect(gesturesArmed, showMap) {
+        if (!showMap || !gesturesArmed) return@LaunchedEffect
         snapshotFlow { cameraPositionState.isMoving to cameraPositionState.position.target }
             .drop(1)
             .distinctUntilChanged()
@@ -189,7 +206,12 @@ fun MapScreen(
                     error = state.cornerError,
                 )
             }
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .onSizeChanged { mapSlotSize = it },
+            ) {
                 when (keyStatus) {
                     MapsApiKeyStatus.Missing -> MapsSetupMessage(
                         stringResource(R.string.maps_key_missing_body),
@@ -197,11 +219,7 @@ fun MapScreen(
                     MapsApiKeyStatus.Unsubstituted -> MapsSetupMessage(
                         stringResource(R.string.maps_key_unsubstituted_body),
                     )
-                    MapsApiKeyStatus.Ready -> if (initFailed) {
-                        MapsSetupMessage(
-                            stringResource(R.string.maps_init_failed, context.packageName),
-                        )
-                    } else if (mapsReady) {
+                    MapsApiKeyStatus.Ready -> if (showMap) {
                         GoogleMap(
                             modifier = Modifier.fillMaxSize(),
                             cameraPositionState = cameraPositionState,
@@ -235,13 +253,24 @@ fun MapScreen(
                 onRetryLocation = viewModel::retryLocation,
             )
         }
-        if (state.blocking && keyStatus == MapsApiKeyStatus.Ready && !initFailed) {
+        if (state.blocking && keyStatus == MapsApiKeyStatus.Ready) {
             BlockingLoader()
         }
     }
 }
 
 private const val MAPS_LOG_TAG = "TadaMaps"
+private const val MAP_INIT_RETRY_MILLIS = 400L
+
+// GoogleMap draws an empty box until this state is SUCCESS, and a FAILURE is not retried.
+@Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+private suspend fun awaitComposeMaps(context: android.content.Context): Boolean {
+    if (GoogleMapsInitializer.state.value == InitializationState.FAILURE) {
+        GoogleMapsInitializer.reset()
+    }
+    GoogleMapsInitializer.initialize(context)
+    return GoogleMapsInitializer.state.value == InitializationState.SUCCESS
+}
 private val CENTER_PIN_WIDTH = 28.dp
 private val CENTER_PIN_HEIGHT = 47.dp
 
