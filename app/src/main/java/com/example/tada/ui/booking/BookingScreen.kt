@@ -93,8 +93,8 @@ fun BookingScreen(
 
 @Composable
 private fun SideBlock(letter: String, side: SidePresentation) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(text = letter, fontWeight = FontWeight.Bold, fontSize = 28.sp)
+    Row(verticalAlignment = Alignment.Top) {
+        Text(text = letter, fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = side.locationName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
