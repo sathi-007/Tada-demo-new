@@ -93,15 +93,28 @@ fun BookingScreen(
 
 @Composable
 private fun SideBlock(letter: String, side: SidePresentation) {
-    Row(verticalAlignment = Alignment.Bottom) {
-        Text(text = letter, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text = letter, fontWeight = FontWeight.Bold, fontSize = 28.sp)
         Spacer(modifier = Modifier.width(12.dp))
-        Text(text = side.locationName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = side.locationName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(modifier = Modifier.height(6.dp))
+            EqualColumns(label = stringResource(R.string.aqi), value = side.aqi.toString())
+            Spacer(modifier = Modifier.height(6.dp))
+            EqualColumns(label = stringResource(R.string.nickname), value = side.nickname)
+        }
     }
-    Spacer(modifier = Modifier.height(12.dp))
-    LabelValue(label = stringResource(R.string.aqi), value = side.aqi.toString())
-    Spacer(modifier = Modifier.height(8.dp))
-    LabelValue(label = stringResource(R.string.nickname), value = side.nickname)
+}
+
+@Composable
+private fun EqualColumns(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = label, color = TadaMuted, modifier = Modifier.weight(1f))
+        Text(text = value, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+    }
 }
 
 @Composable
