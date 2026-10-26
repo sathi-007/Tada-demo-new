@@ -167,8 +167,12 @@ class FusedDeviceLocationRepository @Inject constructor(
     @SuppressLint("MissingPermission")
     override suspend fun current(): GeoCoordinate {
         val client = LocationServices.getFusedLocationProviderClient(context)
-        val location = client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
-            ?: error("Location unavailable")
+        val location = try {
+            client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null).await()
+                ?: client.lastLocation.await()
+        } catch (_: Exception) {
+            client.lastLocation.await()
+        } ?: error("Location unavailable")
         return GeoCoordinate(location.latitude, location.longitude)
     }
 }
